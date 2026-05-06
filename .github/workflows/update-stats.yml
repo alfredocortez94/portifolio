@@ -1,0 +1,55 @@
+name: Update GitHub Stats
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # todo dia às 06h UTC
+  workflow_dispatch:       # permite rodar manualmente
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch commit count (public + private)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          RESPONSE=$(curl -s \
+            -H "Authorization: bearer $GH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "query": "{ viewer { contributionsCollection { totalCommitContributions restrictedContributionsCount } } }"
+            }' \
+            https://api.github.com/graphql)
+
+          echo "GraphQL response: $RESPONSE"
+
+          PUBLIC=$(echo "$RESPONSE" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print(d['data']['viewer']['contributionsCollection']['totalCommitContributions'])
+          ")
+
+          PRIVATE=$(echo "$RESPONSE" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print(d['data']['viewer']['contributionsCollection']['restrictedContributionsCount'])
+          ")
+
+          TOTAL=$((PUBLIC + PRIVATE))
+          UPDATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          echo "{\"commits\": $TOTAL, \"public\": $PUBLIC, \"private\": $PRIVATE, \"updated\": \"$UPDATED\"}" > stats.json
+          echo "Total commits: $TOTAL (public: $PUBLIC, private: $PRIVATE)"
+
+      - name: Commit updated stats
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add stats.json
+          git diff --cached --quiet || git commit -m "chore: update github stats [skip ci]"
+          git push
