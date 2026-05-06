@@ -77,11 +77,10 @@ const navbar = document.getElementById('navbar');
 const heroSection = document.querySelector('.hero');
 
 function updateNavbar() {
-  const heroBottom = heroSection ? heroSection.offsetHeight : 600;
-  if (window.scrollY > heroBottom - 100) {
-    navbar.classList.add('dark');
+  if (window.scrollY > 60) {
+    navbar.classList.add('scrolled');
   } else {
-    navbar.classList.remove('dark');
+    navbar.classList.remove('scrolled');
   }
 }
 window.addEventListener('scroll', updateNavbar, { passive: true });
